@@ -1,0 +1,18 @@
+{
+    "input_root": "/path/to/stage2/output",
+    "output_root": "/path/to/stage3/output",
+    "random_seed": 42,
+    "num_workers": 1,
+    "series_index": "GCC",
+    "series_window": "3D",
+    "series_strategy": "p90",
+    "cv_window_min": 3,
+    "cv_window_max": 21,
+    "cv_kfolds": 5,
+    "cv_random_state": 42,
+    "amplitude_thresholds": [0.10, 0.25, 0.50, 0.75, 0.90],
+    "doy_min": 60,
+    "doy_max": 320,
+    "mc_iterations": 1000,
+    "use_rust": true
+}

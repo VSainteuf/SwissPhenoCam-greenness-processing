@@ -1,0 +1,14 @@
+[package]
+name = "swissphenocam_native"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module"] }
+numpy = "0.23"
+rand = "0.9"
+rand_xoshiro = "0.7"

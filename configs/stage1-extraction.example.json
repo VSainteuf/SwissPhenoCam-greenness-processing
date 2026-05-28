@@ -1,0 +1,10 @@
+{
+    "image_dataset_root": "/path/to/webcam-image-archive-30min",
+    "output_root": "/path/to/greenness/dataset",
+    "polygon_files_root": "/path/to/polygon-coords",
+    "polygon_config_path": "/path/to/annotation_config_v5.json",
+    "uid_mapping_path": "/path/to/uid_mapping.json",
+    "categories_kept": ["individual tree"],
+    "shrink_ratios": [33],
+    "plot_dir": null
+}

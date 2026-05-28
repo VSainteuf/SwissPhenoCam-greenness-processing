@@ -1,0 +1,16 @@
+{
+    "input_root": "/path/to/stage1/output",
+    "output_root": "/path/to/stage2/output",
+    "num_workers": 1,
+    "snow_flags_root": null,
+    "brightness_min": 50.0,
+    "brightness_max": 650.0,
+    "aggregation_windows": ["1D", "3D"],
+    "aggregation_strategies": ["avg", "p50", "p75", "p90"],
+    "uid_mapping_path": "/path/to/uid_mapping.json",
+    "smoothing_window_candidates": [3, 5, 7, 9, 11, 13, 15, 17, 19, 21],
+    "smoothing_cv_kfolds": 5,
+    "smoothing_use_rust": false,
+    "noon_only_on_resolution_change": true,
+    "shrink_suffix": "33"
+}

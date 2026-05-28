@@ -1,0 +1,56 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "swissphenocam"
+version = "0.0.1"
+description = "Tree-level phenocam greenness processing pipeline for the SwissPhenoCam dataset."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Vivien Sainte Fare Garnot" },
+]
+dependencies = [
+    "numpy>=2,<3",
+    "opencv-python-headless>=4,<5",
+    "pandas>=3,<4",
+    "scikit-learn>=1.8.0,<2",
+    "scipy>=1,<2",
+    "shapely>=2,<3",
+    "tqdm>=4,<5",
+]
+
+[project.scripts]
+swissphenocam-extract = "swissphenocam.cli.extract:main"
+swissphenocam-process = "swissphenocam.cli.process:main"
+swissphenocam-transitions = "swissphenocam.cli.transitions:main"
+swissphenocam-aggregate = "swissphenocam.cli.aggregate:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "maturin",
+    "jupyter>=1.1.1",
+    "nbconvert>=7.17.1",
+    "pillow>=12,<13",
+    "seaborn>=0.13.2",
+    "statsmodels>=0.14.6",
+    "ipykernel>=7.2.0",
+    "matplotlib>=3.10.9",
+]
+
+[tool.maturin]
+manifest-path = "rust/Cargo.toml"
+python-source = "src"
+module-name = "swissphenocam._native"
+features = ["pyo3/extension-module"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
