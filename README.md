@@ -230,7 +230,6 @@ Minimal stage-1 config (see `configs/extraction.example.json` for the full set):
 ├── rust/                          # PyO3 extension (swissphenocam._native)
 │   └── src/{lib.rs, extraction.rs, core.rs}
 ├── configs/*.example.json         # template configs — copy and edit
-├── example-files/                 # small committed polygon JSON sample
 ├── tests/                         # pytest suite
 └── pyproject.toml                 # maturin build + project metadata
 ```
@@ -243,7 +242,7 @@ See per-folder READMEs under `src/swissphenocam/`, `scripts/`, `configs/`, and `
 
 If you use this code or the SwissPhenoCam dataset, please cite the ESSD paper:
 
-> Sainte Fare Garnot, V., *et al.* *SwissPhenoCam: A country-scale dataset of tree-level phenocam greenness captures species-specific phenological variation along elevation gradients in Switzerland.* Earth System Science Data (in review).
+> Garnot V.S.F., Lever J. J., de Boer M., Spafford L., Vitasse Y., Sigg C., Pietragalla B., Zweifel R., Gessler A., Wegner J. D., *SwissPhenoCam: A country-scale dataset of tree-level phenocam greenness captures species-specific phenological variation along elevation gradients in Switzerland.* , preprint, 2026.
 
 --- 
 ## Aknowledgements 
