@@ -8,6 +8,7 @@ from swissphenocam.cli.aggregate import (
     _nan_season_columns,
     _evaluate_filters,
     _build_report,
+    _keep_row,
     _process_dataset,
 )
 from swissphenocam.cli.process import _drop_excluded_locations
@@ -178,7 +179,31 @@ def test_build_report_with_partials():
     assert "Excluded (external CSV)" in report
 
 
-# --- exclude_locations ---------------------------------------
+# --- allow_partial / exclude_locations ---------------------------------------
+
+@pytest.mark.parametrize(
+    "spring_ok,autumn_ok,allow_partial,expected",
+    [
+        (True, True, True, True),
+        (False, True, True, True),
+        (True, False, True, True),
+        (False, False, True, False),
+        (True, True, False, True),
+        (False, True, False, False),
+        (True, False, False, False),
+        (False, False, False, False),
+    ],
+)
+def test_keep_row(spring_ok, autumn_ok, allow_partial, expected):
+    assert _keep_row(spring_ok, autumn_ok, allow_partial) is expected
+
+
+def test_build_report_states_mode():
+    assert "Per-season filters     : partial" in _build_report(10, 0, 0, 0, 0, [])
+    assert "Per-season filters     : hard" in _build_report(
+        10, 0, 0, 0, 0, [], allow_partial=False
+    )
+
 
 def test_drop_excluded_locations():
     units = [("aaa", "1", "2020", "i1"), ("bbb", "1", "2020", "i2"), ("aaa", "2", "2021", "i3")]
@@ -215,6 +240,20 @@ def _cfg(root: Path, **kw) -> AggregateConfig:
     )
 
 
+def test_process_dataset_partial_mode_blanks_spring(small_dataset):
+    df, _ = _process_dataset(_cfg(small_dataset), verbose=False)
+    assert sorted(df["full_name"]) == ["i00001_2020", "i00002_2020", "i00003_2020"]
+    row = df.set_index("full_name").loc["i00002_2020"]
+    assert math.isnan(row["GCC_3D_p90-GU_50"])
+    assert row["GCC_3D_p90-GD_25"] == 280.0
+
+
+def test_process_dataset_hard_mode_excludes_tree_year(small_dataset):
+    df, report = _process_dataset(_cfg(small_dataset, allow_partial=False), verbose=False)
+    assert sorted(df["full_name"]) == ["i00001_2020", "i00003_2020"]
+    assert "Partially accepted     :   0" in report
+
+
 def test_process_dataset_exclude_locations(small_dataset):
     df, report = _process_dataset(_cfg(small_dataset, exclude_locations=["drop"]), verbose=False)
     assert "drop" not in set(df["location"])
@@ -224,6 +263,23 @@ def test_process_dataset_exclude_locations(small_dataset):
 def test_load_aggregate_config_reads_new_keys(tmp_path):
     p = tmp_path / "c.json"
     p.write_text(json.dumps({"input_root": str(tmp_path), "output_path": str(tmp_path / "o.csv"),
-                             "exclude_locations": ["x"]}))
+                             "allow_partial": False, "exclude_locations": ["x"]}))
     cfg = load_aggregate_config(p)
+    assert cfg.allow_partial is False
     assert cfg.exclude_locations == ["x"]
+
+
+def test_process_dataset_required_keys(tmp_path):
+    _write_tree_year(tmp_path, "keep", "i00001", missing_spring=3)
+    _write_tree_year(tmp_path, "keep", "i00002", missing_spring=3)
+    d = tmp_path / "keep_1" / "i00002" / "2020"
+    trans = {"dates": {"GU_50": 120.0, "GD_25": None}, "uncertainties": {"GD_25_std": 2.0}}
+    (d / "i00002_2020-GCC-3D-p90-transitions.json").write_text(json.dumps(trans))
+
+    df, report = _process_dataset(_cfg(tmp_path), verbose=False)
+    assert len(df) == 2  # not required: missing GD_25 is kept
+
+    cfg = _cfg(tmp_path, required_keys=["GCC_3D_p90-GU_50", "GCC_3D_p90-GD_25"])
+    df, report = _process_dataset(cfg, verbose=False)
+    assert list(df["full_name"]) == ["i00001_2020"]
+    assert "req  GCC_3D_p90-GD_25 present" in report

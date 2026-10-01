@@ -456,8 +456,16 @@ class AggregateConfig:
     # Optional CSV of (uid, year) pairs to exclude from the final output.
     exclude_csv_path: Path | None = None
 
+    # When False, a failing spring or autumn filter excludes the whole
+    # tree-year instead of only blanking that season's transition columns.
+    allow_partial: bool = True
+
     # Location IDs whose tree-years are dropped before any counting.
     exclude_locations: list = field(default_factory=list)
+
+    # Keys that must have a value (not missing / NaN); otherwise the whole
+    # tree-year is excluded. E.g. transition dates that must be present.
+    required_keys: list = field(default_factory=list)
 
 
 def _validate_aggregate_config(cfg: AggregateConfig) -> None:

@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import re
 from pathlib import Path
 
@@ -204,6 +205,23 @@ def _evaluate_filters(
     return whole_year_ok, spring_ok, autumn_ok
 
 
+def _is_missing(key: str, row: dict) -> bool:
+    """True when *key* has no numeric, non-NaN value in *row*."""
+    vals = _resolve_values(key, row)
+    return not vals or any(v is None or math.isnan(v) for v in vals)
+
+
+def _keep_row(spring_ok: bool, autumn_ok: bool, allow_partial: bool) -> bool:
+    """Whether a tree-year that passed all whole-year filters is kept.
+
+    With *allow_partial*, one failing season is blanked and the row kept; without
+    it, any failing season excludes the row.
+    """
+    if allow_partial:
+        return spring_ok or autumn_ok
+    return spring_ok and autumn_ok
+
+
 def _build_report(
     total: int,
     excluded_combined: int,
@@ -211,6 +229,7 @@ def _build_report(
     partial_spring_removed: int,
     partial_autumn_removed: int,
     threshold_stats: list[tuple[str, int]],
+    allow_partial: bool = True,
 ) -> str:
     fully_accepted = total - excluded_combined - excluded_by_csv - partial_spring_removed - partial_autumn_removed
     partially_accepted = partial_spring_removed + partial_autumn_removed
@@ -228,6 +247,10 @@ def _build_report(
         f"  - Autumn removed (GD NaN) : {partial_autumn_removed:>3} ({pct(partial_autumn_removed)} %)",
         f"Excluded (thresholds)  : {excluded_combined:>3} ({pct(excluded_combined)} %)",
         f"Excluded (external CSV): {excluded_by_csv:>3} ({pct(excluded_by_csv)} %)",
+        "",
+        "Per-season filters     : "
+        + ("partial (failing season blanked)" if allow_partial
+           else "hard (failing season excludes the tree-year)"),
         "",
         "Per-filter exclusions (independent counts — a tree-year may appear in multiple):",
         "-" * 78,
@@ -307,6 +330,9 @@ def _process_dataset(
         tag = f" [{season}]" if season != "whole_year" else ""
         count = sum(1 for row in all_rows if _row_fails(field, bound, False, row, nan_ok=field in nan_ok))
         threshold_stats.append((f"max  {field} <= {bound}{tag}", count))
+    for field in cfg.required_keys:
+        count = sum(1 for row in all_rows if _is_missing(field, row))
+        threshold_stats.append((f"req  {field} present", count))
 
     # Phase 3: combined filtering
     accepted: list[dict] = []
@@ -331,7 +357,9 @@ def _process_dataset(
             row, cfg.min_thresholds, cfg.max_thresholds, nan_ok
         )
 
-        if not whole_ok or (not spring_ok and not autumn_ok):
+        required_ok = not any(_is_missing(field, row) for field in cfg.required_keys)
+
+        if not whole_ok or not required_ok or not _keep_row(spring_ok, autumn_ok, cfg.allow_partial):
             excluded_combined += 1
             if verbose:
                 logger.info("EXCLUDED: %s / year=%s", row.get("full_name"), row.get("year"))
@@ -362,7 +390,8 @@ def _process_dataset(
                 excluded_combined, excluded_by_csv)
 
     report = _build_report(total, excluded_combined, excluded_by_csv,
-                           partial_spring_removed, partial_autumn_removed, threshold_stats)
+                           partial_spring_removed, partial_autumn_removed, threshold_stats,
+                           allow_partial=cfg.allow_partial)
     return pd.DataFrame(accepted), report
 
 
