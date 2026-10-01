@@ -1,11 +1,17 @@
+import json
 import math
+from pathlib import Path
+
 import pytest
 from swissphenocam.cli.aggregate import (
     _classify_threshold,
     _nan_season_columns,
     _evaluate_filters,
     _build_report,
+    _process_dataset,
 )
+from swissphenocam.cli.process import _drop_excluded_locations
+from swissphenocam.config import AggregateConfig, load_aggregate_config
 
 
 @pytest.mark.parametrize(
@@ -170,3 +176,54 @@ def test_build_report_with_partials():
     assert "Autumn removed" in report
     assert "Excluded (thresholds)" in report
     assert "Excluded (external CSV)" in report
+
+
+# --- exclude_locations ---------------------------------------
+
+def test_drop_excluded_locations():
+    units = [("aaa", "1", "2020", "i1"), ("bbb", "1", "2020", "i2"), ("aaa", "2", "2021", "i3")]
+    kept, n = _drop_excluded_locations(units, ["aaa"])
+    assert kept == [("bbb", "1", "2020", "i2")]
+    assert n == 2
+
+
+def _write_tree_year(root: Path, location: str, uid: str, missing_spring: int) -> None:
+    full_name = f"{uid}_2020"
+    d = root / f"{location}_1" / uid / "2020"
+    d.mkdir(parents=True)
+    meta = {"location": location, "sub_location": "1", "year": 2020, "full_name": full_name}
+    (d / f"{full_name}_metadata.json").write_text(json.dumps(meta))
+    flags = {"spring_max_consecutive_missing_days": missing_spring,
+             "autumn_max_consecutive_missing_days": 0}
+    (d / f"{full_name}-sampling-flags.json").write_text(json.dumps(flags))
+    trans = {"dates": {"GU_50": 120.0, "GD_25": 280.0}, "snr": 20.0}
+    (d / f"{full_name}-GCC-3D-p90-transitions.json").write_text(json.dumps(trans))
+
+
+@pytest.fixture
+def small_dataset(tmp_path):
+    _write_tree_year(tmp_path, "keep", "i00001", missing_spring=3)   # passes
+    _write_tree_year(tmp_path, "keep", "i00002", missing_spring=30)  # spring fails
+    _write_tree_year(tmp_path, "drop", "i00003", missing_spring=3)   # excluded site
+    return tmp_path
+
+
+def _cfg(root: Path, **kw) -> AggregateConfig:
+    return AggregateConfig(
+        input_root=root, output_path=root / "out.csv",
+        max_thresholds={"spring_max_consecutive_missing_days": 14}, **kw,
+    )
+
+
+def test_process_dataset_exclude_locations(small_dataset):
+    df, report = _process_dataset(_cfg(small_dataset, exclude_locations=["drop"]), verbose=False)
+    assert "drop" not in set(df["location"])
+    assert "Total tree-years found : 2" in report
+
+
+def test_load_aggregate_config_reads_new_keys(tmp_path):
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"input_root": str(tmp_path), "output_path": str(tmp_path / "o.csv"),
+                             "exclude_locations": ["x"]}))
+    cfg = load_aggregate_config(p)
+    assert cfg.exclude_locations == ["x"]

@@ -282,6 +282,13 @@ def _process_dataset(
 
         all_rows.append(_build_row(meta, flags, transition_data))
 
+    if cfg.exclude_locations:
+        excluded_locs = {str(loc) for loc in cfg.exclude_locations}
+        n_before = len(all_rows)
+        all_rows = [r for r in all_rows if str(r.get("location")) not in excluded_locs]
+        logger.info("Dropped %d tree-years from excluded locations %s.",
+                    n_before - len(all_rows), sorted(excluded_locs))
+
     total = len(all_rows)
     logger.info("%d tree-years found in dataset root.", total)
     if total == 0:

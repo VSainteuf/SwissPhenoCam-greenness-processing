@@ -81,6 +81,15 @@ def _discover_units(input_root: Path) -> list[tuple[str, str, str, str]]:
     return units
 
 
+def _drop_excluded_locations(
+    units: list[tuple[str, str, str, str]], exclude_locations: list[str]
+) -> tuple[list[tuple[str, str, str, str]], int]:
+    """Remove units whose location is in *exclude_locations*; return (kept, n_dropped)."""
+    excluded = set(exclude_locations)
+    kept = [u for u in units if u[0] not in excluded]
+    return kept, len(units) - len(kept)
+
+
 def _output_folder(config: ProcessingConfig, location: str, sublocation: str, year: str, full_name: str) -> Path:
     site = f"{location}_{sublocation}"
     return config.output_root / site / full_name / year
@@ -266,6 +275,12 @@ def orchestrator(args: argparse.Namespace) -> None:
     logger.info("Discovering stage-1 outputs under %s …", config.input_root)
     units = _discover_units(config.input_root)
     logger.info("Found %d polygon-years to process.", len(units))
+    if config.exclude_locations:
+        units, n_excluded = _drop_excluded_locations(units, config.exclude_locations)
+        logger.info(
+            "Excluded %d polygon-years from locations %s; %d left.",
+            n_excluded, sorted(config.exclude_locations), len(units),
+        )
 
     worker = partial(_process_one, config_dict=_config_to_kwargs(config), force=args.force)
 
