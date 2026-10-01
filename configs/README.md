@@ -44,9 +44,13 @@ All dataclasses + validators live in `src/swissphenocam/config.py`. Invalid conf
   "brightness_max":          650.0,
   "aggregation_windows":     ["1D", "3D"],
   "aggregation_strategies":  ["avg", "p50", "p75", "p90"],
-  "num_workers":             1
+  "num_workers":             1,
+  "exclude_locations":       []
 }
 ```
+
+- `snow_flags_root` — folder with one daily snow-flag CSV per site-year, `<location>/<location>-<year>-daily_snow_flag.csv` (the layout of `auxiliary-data/snow-index/` in the published dataset). Days with `snow == 1` are removed. A missing file or day counts as snow-free. `null` turns the snow filter off.
+- `exclude_locations` — location IDs (the folder name before `_<sublocation>`) to skip entirely. Default: none.
 
 ## Stage 3 — transitions 📈
 
@@ -75,23 +79,38 @@ All dataclasses + validators live in `src/swissphenocam/config.py`. Invalid conf
 
 ## Stage 4 — aggregation 📋
 
+Two example configs reproduce the published v1.1 record files: `stage4-aggregate-full.example.json` and `stage4-aggregate-curated.example.json`. The curated one:
+
 ```json
 {
-  "input_root":  "/path/to/greenness-dataset",
-  "output_path": "/path/to/phenology_records_filtered.csv",
+  "input_root":       "/path/to/greenness-dataset",
+  "output_path":      "/path/to/greenness-dataset/phenology_records_curated.csv",
+  "exclude_csv_path": "/path/to/optional/visual_check_exclusions_curated.csv",
   "min_thresholds": {
-    "GCC_3D_p90-snr": 15.0
+    "GCC_3D_p90-snr": 6.0,
+    "GCC_3D_p90-season_length": 145
   },
   "max_thresholds": {
     "GCC_3D_p90-n_peak": 1,
     "spring_max_consecutive_missing_days": 14.0,
-    "autumn_max_consecutive_missing_days": 21.0,
+    "autumn_max_consecutive_missing_days": 14.0,
     "GCC_3D_p90-GU_50-std": 7.0,
     "GCC_3D_p90-GD_25-std": 7.0
-  }
+  },
+  "nan_ok_keys":       ["GCC_3D_p90-season_length"],
+  "exclude_locations": [],
+  "allow_partial":     false,
+  "required_keys":     ["GCC_3D_p90-GU_50", "GCC_3D_p90-GD_25"]
 }
 ```
 
+The full set uses SNR ≥ 0, season length ≥ 100 d, at most 21 consecutive missing days per season, GU₅₀ / GD₂₅ std ≤ 14 d, and the defaults for `allow_partial` and `required_keys`.
+
 - `input_root` — greenness dataset root containing stage-1/2/3 outputs.
-- `output_path` — destination CSV (one row per accepted tree-year).
-- `min_thresholds` / `max_thresholds` — dicts mapping field names to numeric bounds. Bare suffix keys (e.g. `"snr"`) match all columns ending in that suffix across every product found for the tree-year. Tree-years missing a required field are excluded. A plain-text filtering report is written alongside the CSV.
+- `output_path` — destination CSV (one row per accepted tree-year). A plain-text filtering report is written alongside it as `<output name>-filtering-report.txt`.
+- `min_thresholds` / `max_thresholds` — dicts mapping field names to numeric bounds. Bare suffix keys (e.g. `"snr"`) match all columns ending in that suffix across every product found for the tree-year. A missing value fails the threshold; a NaN value passes.
+- `nan_ok_keys` — threshold keys for which a missing value is not a failure.
+- `exclude_csv_path` — optional CSV of `(uid, year)` pairs to exclude (the published sets use it for tree-years that failed visual checks).
+- `exclude_locations` — location IDs whose tree-years are dropped before any counting. Default: none.
+- `allow_partial` — how per-season thresholds act (keys starting with `spring_` / `autumn_`, or on green-up / green-down dates such as `-GU_50` / `-GD_25`). `true` (default): a failing season's transition columns are set to NaN and the tree-year is kept if the other season passes. `false`: any failing season excludes the tree-year.
+- `required_keys` — columns that must have a value; a tree-year with a missing or NaN value is excluded. Default: none.

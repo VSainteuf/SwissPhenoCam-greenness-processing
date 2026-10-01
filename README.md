@@ -115,13 +115,14 @@ Or invoke via `uv run python scripts/<script>.py --config configs/<config>.examp
 
 ### 2. Time-series processing 📈
 
-▶️ **In:** stage-1 per-observation CSVs + a daily snow-flag CSV.
+▶️ **In:** stage-1 per-observation CSVs + daily snow-flag CSVs (one per site-year).
 
 ▶️ **Out:** six product CSVs per polygon-year — `(GCC|RCC|BCC) × (1D|3D)` — each containing all four aggregation strategies side-by-side.
 
-- Snow filter: drops observations on snow-flagged days (per location).
+- Snow filter: drops observations on days flagged as snowy (`snow == 1`) in `<snow_flags_root>/<location>/<location>-<year>-daily_snow_flag.csv`, the layout of `auxiliary-data/snow-index/` in the published dataset. A missing file or a missing day counts as snow-free, so the snow index must cover every observed day.
 - Brightness filter: drops observations whose ROI brightness falls outside `[min, max]`.
 - Aggregation: 1-day and 3-day windows × `{avg, p50, p75, p90}`.
+- Location exclusion: polygon-years of the location IDs in `exclude_locations` are skipped.
 
 ### 3. Transition-date estimation 🗓️
 
@@ -140,8 +141,12 @@ Or invoke via `uv run python scripts/<script>.py --config configs/<config>.examp
 ▶️ **Out:** a single wide CSV (one row per accepted tree-year) + a plain-text filtering report.
 
 - **Collection.** Walks the dataset root, discovers all `*-sampling-flags.json` files, and joins each tree-year's metadata, sampling flags, and transition metrics into a flat row.
-- **Quality thresholds.** Configurable min/max thresholds applied to any column (e.g. `GCC_3D_p90-snr >= 15`, `GCC_3D_p90-n_peak <= 1`, `spring_max_consecutive_missing_days <= 14`). Wildcard keys (e.g. bare `snr`) match all columns ending in that suffix. Tree-years missing a required field are excluded.
-- **Filtering report.** Per-threshold exclusion counts (independent impact of each filter) plus the combined pass/fail count.
+- **Quality thresholds.** Configurable min/max thresholds applied to any column (e.g. `GCC_3D_p90-snr >= 6`, `GCC_3D_p90-n_peak <= 1`, `spring_max_consecutive_missing_days <= 14`). Wildcard keys (e.g. bare `snr`) match all columns ending in that suffix. A tree-year whose value is missing fails the threshold, unless the key is listed in `nan_ok_keys`. A NaN value passes.
+- **Per-season filters.** Thresholds on spring keys (`spring_*`, green-up dates such as `-GU_50`) and autumn keys (`autumn_*`, green-down dates such as `-GD_25`) apply to one season. With `allow_partial: true` (default), a failing season's transition columns are set to NaN and the tree-year is kept if the other season passes. With `allow_partial: false`, any failing season excludes the tree-year.
+- **Required values.** Columns listed in `required_keys` must have a value; a tree-year with a missing or NaN value is excluded.
+- **Exclusions.** `exclude_locations` drops all tree-years of the listed location IDs before counting. `exclude_csv_path` drops listed `(uid, year)` pairs (the published sets use it for tree-years that failed visual checks).
+- **Full and curated sets.** The published dataset has two record files built from the same stage-3 outputs: `phenology_records_full.csv` and `phenology_records_curated.csv`. Their settings are in `configs/stage4-aggregate-full.example.json` and `configs/stage4-aggregate-curated.example.json`.
+- **Filtering report.** Per-threshold exclusion counts (independent impact of each filter) plus the combined pass/fail count, written next to the CSV as `<output name>-filtering-report.txt`.
 
 ---
 
@@ -195,8 +200,10 @@ Minimal stage-1 config (see `configs/extraction.example.json` for the full set):
         <uid>_<year>-GCC-1D-p90-transitions.json       #   one JSON per (index, agg, strategy)
         <uid>_<year>-RCC-3D-p90-transitions.json       #   ...
         <uid>_<year>-sampling-flags.json               # stage 3, per-tree-year QC flags
-  phenology_records_filtered.csv                       # stage 4, one file at dataset root
-  phenology_records_filtered-filtering-report.txt      # stage 4, per-threshold exclusion counts
+  phenology_records_full.csv                           # stage 4, full set
+  phenology_records_full-filtering-report.txt          # stage 4, per-threshold exclusion counts
+  phenology_records_curated.csv                        # stage 4, curated set
+  phenology_records_curated-filtering-report.txt       #   (one CSV + report per stage-4 config)
   extract.log                                          # stage 1 log
   process.log                                          # stage 2 log
   transitions.log                                      # stage 3 log
