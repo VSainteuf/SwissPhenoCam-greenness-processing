@@ -4,10 +4,10 @@ JSON configs for the four pipeline stages. Each `*.example.json` is a template �
 
 | File | Consumed by | Dataclass |
 | --- | --- | --- |
-| `extraction.example.json` | `swissphenocam-extract` / `scripts/extract.py` | `ExtractionConfig` |
-| `timeseries.example.json` | `swissphenocam-process` / `scripts/process_timeseries.py` | `ProcessingConfig` |
-| `transitions.example.json` | `swissphenocam-transitions` / `scripts/estimate_transitions.py` | `ModellingConfig` |
-| `aggregate.example.json` | `swissphenocam-aggregate` / `scripts/aggregate_records.py` | `AggregateConfig` |
+| `stage1-extraction.example.json` | `swissphenocam-extract` / `scripts/extract.py` | `ExtractionConfig` |
+| `stage2-timeseries.example.json` | `swissphenocam-process` / `scripts/process_timeseries.py` | `ProcessingConfig` |
+| `stage3-transitions.example.json` | `swissphenocam-transitions` / `scripts/estimate_transitions.py` | `ModellingConfig` |
+| `stage4-aggregate-full.example.json`, `stage4-aggregate-curated.example.json` | `swissphenocam-aggregate` / `scripts/aggregate_records.py` | `AggregateConfig` |
 
 All dataclasses + validators live in `src/swissphenocam/config.py`. Invalid configs raise `ValueError` on load with a message pointing at the offending field.
 
@@ -19,6 +19,7 @@ All dataclasses + validators live in `src/swissphenocam/config.py`. Invalid conf
   "output_root":         "/path/to/greenness-dataset",
   "polygon_files_root":  "/path/to/polygon-coords",
   "polygon_config_path": "/path/to/annotation_config_v5.json",
+  "uid_mapping_path":    "/path/to/uid-mapping.json",
 
   "categories_kept":     ["individual tree"],
   "shrink_ratios":       [33],
@@ -29,6 +30,7 @@ All dataclasses + validators live in `src/swissphenocam/config.py`. Invalid conf
 
 - `shrink_ratios` — one or more percent-area shrinks to apply to each polygon. The paper uses `[33]`, producing `GCC_s33` / `RCC_s33` columns. Each ratio must be in `(0, 100)` exclusive.
 - `categories_kept` — polygon categories to process. Default keeps only individual trees.
+- `uid_mapping_path` — JSON mapping annotation IDs to tree UIDs (`iXXXXX`) (see `uid-mapping.json` at the repository root).
 - `camera_hashes_path` — optional JSON mapping readable names → MD5 hashes. Provide when the image archive still uses hash-named location folders.
 - `plot_dir` — if set, stage 1 will write one polygon-overlay sanity image per site-year here.
 - `output_root` does not need to exist; it will be created.

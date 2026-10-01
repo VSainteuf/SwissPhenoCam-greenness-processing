@@ -136,7 +136,7 @@ Or invoke via `uv run python scripts/<script>.py --config configs/<config>.examp
 
 ### 4. Record aggregation 💿
 
-▶️ **In:** stage-3 `transitions.json` files + metadata JSONs + sampling-flags JSONs across the entire dataset.
+▶️ **In:** stage-3 `*-transitions.json` files + metadata JSONs + sampling-flags JSONs across the entire dataset.
 
 ▶️ **Out:** a single wide CSV (one row per accepted tree-year) + a plain-text filtering report.
 
@@ -154,7 +154,7 @@ Or invoke via `uv run python scripts/<script>.py --config configs/<config>.examp
 
 All four stages take a single `--config path/to/config.json`. Start from `configs/*.example.json` and edit paths. Config dataclasses and validators are in `src/swissphenocam/config.py` — invalid configs fail fast with a clear `ValueError`.
 
-Minimal stage-1 config (see `configs/extraction.example.json` for the full set):
+Minimal stage-1 config (see `configs/stage1-extraction.example.json` for the full set):
 
 ```json
 {
@@ -162,9 +162,9 @@ Minimal stage-1 config (see `configs/extraction.example.json` for the full set):
   "output_root":        "/path/to/greenness-dataset",
   "polygon_files_root": "/path/to/polygon-coords",
   "polygon_config_path": "/path/to/annotation_config_v5.json",
+  "uid_mapping_path":   "/path/to/uid-mapping.json",
   "categories_kept":    ["individual tree"],
   "shrink_ratios":      [33],
-  "image_extensions":   [".jpg", ".jpeg", ".jp2", "jp2k"],
   "plot_dir":           null
 }
 ```
