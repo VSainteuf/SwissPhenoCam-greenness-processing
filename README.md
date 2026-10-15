@@ -84,13 +84,13 @@ uv run maturin develop
 uv run pytest
 
 # 4. Run the stages
-swissphenocam-extract     --config configs/extraction.example.json --workers-per-site-year 4 --site-years-in-parallel 4
-swissphenocam-process     --config configs/timeseries.example.json
-swissphenocam-transitions --config configs/transitions.example.json
-swissphenocam-aggregate   --config configs/aggregate.example.json
+swissphenocam-extract     --config configs/stage1-extraction.example.json --workers-per-site-year 4 --site-years-in-parallel 4
+swissphenocam-process     --config configs/stage2-timeseries.example.json
+swissphenocam-transitions --config configs/stage3-transitions.example.json
+swissphenocam-aggregate   --config configs/stage4-aggregate-curated.example.json
 ```
 
-Or invoke via `uv run python scripts/<script>.py --config configs/<config>.example.json` if you prefer to run from source directly.
+Or invoke via `uv run python scripts/<script>.py --config configs/<stage config>.example.json` if you prefer to run from source directly.
 
 > Re-run `uv run maturin develop` after any change under `rust/`.
 
@@ -115,13 +115,14 @@ Or invoke via `uv run python scripts/<script>.py --config configs/<config>.examp
 
 ### 2. Time-series processing 📈
 
-▶️ **In:** stage-1 per-observation CSVs + a daily snow-flag CSV.
+▶️ **In:** stage-1 per-observation CSVs + daily snow-flag CSVs (one per site-year).
 
 ▶️ **Out:** six product CSVs per polygon-year — `(GCC|RCC|BCC) × (1D|3D)` — each containing all four aggregation strategies side-by-side.
 
-- Snow filter: drops observations on snow-flagged days (per location).
+- Snow filter: drops observations on days flagged as snowy (`snow == 1`) in `<snow_flags_root>/<location>/<location>-<year>-daily_snow_flag.csv`, the layout of `auxiliary-data/snow-index/` in the published dataset. A missing file or a missing day counts as snow-free, so the snow index must cover every observed day.
 - Brightness filter: drops observations whose ROI brightness falls outside `[min, max]`.
 - Aggregation: 1-day and 3-day windows × `{avg, p50, p75, p90}`.
+- Location exclusion: polygon-years of the location IDs in `exclude_locations` are skipped.
 
 ### 3. Transition-date estimation 🗓️
 
@@ -135,13 +136,30 @@ Or invoke via `uv run python scripts/<script>.py --config configs/<config>.examp
 
 ### 4. Record aggregation 💿
 
-▶️ **In:** stage-3 `transitions.json` files + metadata JSONs + sampling-flags JSONs across the entire dataset.
+▶️ **In:** stage-3 `*-transitions.json` files + metadata JSONs + sampling-flags JSONs across the entire dataset.
 
 ▶️ **Out:** a single wide CSV (one row per accepted tree-year) + a plain-text filtering report.
 
 - **Collection.** Walks the dataset root, discovers all `*-sampling-flags.json` files, and joins each tree-year's metadata, sampling flags, and transition metrics into a flat row.
-- **Quality thresholds.** Configurable min/max thresholds applied to any column (e.g. `GCC_3D_p90-snr >= 15`, `GCC_3D_p90-n_peak <= 1`, `spring_max_consecutive_missing_days <= 14`). Wildcard keys (e.g. bare `snr`) match all columns ending in that suffix. Tree-years missing a required field are excluded.
-- **Filtering report.** Per-threshold exclusion counts (independent impact of each filter) plus the combined pass/fail count.
+- **Quality thresholds.** Configurable min/max thresholds applied to any column (e.g. `GCC_3D_p90-snr >= 6`, `GCC_3D_p90-n_peak <= 1`, `spring_max_consecutive_missing_days <= 14`). Wildcard keys (e.g. bare `snr`) match all columns ending in that suffix. A tree-year whose value is missing fails the threshold, unless the key is listed in `nan_ok_keys`. A NaN value passes.
+- **Per-season filters.** Thresholds on spring keys (`spring_*`, green-up dates such as `-GU_50`) and autumn keys (`autumn_*`, green-down dates such as `-GD_25`) apply to one season. With `allow_partial: true` (default), a failing season's transition columns are set to NaN and the tree-year is kept if the other season passes. With `allow_partial: false`, any failing season excludes the tree-year.
+- **Required values.** Columns listed in `required_keys` must have a value; a tree-year with a missing or NaN value is excluded.
+- **Exclusions.** `exclude_locations` drops all tree-years of the listed location IDs before counting. `exclude_csv_path` drops listed `(uid, year)` pairs (the published sets use it for tree-years that failed visual checks).
+- **Full and curated sets.** The published dataset has two record files built from the same stage-3 outputs: `phenology_records_full.csv` and `phenology_records_curated.csv`. Their settings are in `configs/stage4-aggregate-full.example.json` and `configs/stage4-aggregate-curated.example.json`.
+- **Filtering report.** Per-threshold exclusion counts (independent impact of each filter) plus the combined pass/fail count, written next to the CSV as `<output name>-filtering-report.txt`.
+
+---
+
+## Paper figures 📊
+
+`notebooks/analysis.ipynb` makes all figures and tables of the paper from the published SwissPhenoCam dataset. It does not need the pipeline or the Rust extension, only the downloaded dataset.
+
+```bash
+uv sync                                    # installs the dev group (jupyter, matplotlib, ...)
+uv run jupyter lab notebooks/analysis.ipynb
+```
+
+Set `DATA_ROOT` in the first code cell to the folder of the downloaded dataset (the one holding `phenology_records_curated.csv`). A full run writes the figures (PDF) and a species colour map (`species_colormap.json`) to `notebooks/figures/`, and prints the LaTeX tables. Figures for the 6 most frequent species are for the main text; the files with the `_supp` suffix show the next 8 species.
 
 ---
 
@@ -149,7 +167,7 @@ Or invoke via `uv run python scripts/<script>.py --config configs/<config>.examp
 
 All four stages take a single `--config path/to/config.json`. Start from `configs/*.example.json` and edit paths. Config dataclasses and validators are in `src/swissphenocam/config.py` — invalid configs fail fast with a clear `ValueError`.
 
-Minimal stage-1 config (see `configs/extraction.example.json` for the full set):
+Minimal stage-1 config (see `configs/stage1-extraction.example.json` for the full set):
 
 ```json
 {
@@ -157,9 +175,9 @@ Minimal stage-1 config (see `configs/extraction.example.json` for the full set):
   "output_root":        "/path/to/greenness-dataset",
   "polygon_files_root": "/path/to/polygon-coords",
   "polygon_config_path": "/path/to/annotation_config_v5.json",
+  "uid_mapping_path":   "/path/to/uid-mapping.json",
   "categories_kept":    ["individual tree"],
   "shrink_ratios":      [33],
-  "image_extensions":   [".jpg", ".jpeg", ".jp2", "jp2k"],
   "plot_dir":           null
 }
 ```
@@ -195,8 +213,10 @@ Minimal stage-1 config (see `configs/extraction.example.json` for the full set):
         <uid>_<year>-GCC-1D-p90-transitions.json       #   one JSON per (index, agg, strategy)
         <uid>_<year>-RCC-3D-p90-transitions.json       #   ...
         <uid>_<year>-sampling-flags.json               # stage 3, per-tree-year QC flags
-  phenology_records_filtered.csv                       # stage 4, one file at dataset root
-  phenology_records_filtered-filtering-report.txt      # stage 4, per-threshold exclusion counts
+  phenology_records_full.csv                           # stage 4, full set
+  phenology_records_full-filtering-report.txt          # stage 4, per-threshold exclusion counts
+  phenology_records_curated.csv                        # stage 4, curated set
+  phenology_records_curated-filtering-report.txt       #   (one CSV + report per stage-4 config)
   extract.log                                          # stage 1 log
   process.log                                          # stage 2 log
   transitions.log                                      # stage 3 log
@@ -230,6 +250,7 @@ Minimal stage-1 config (see `configs/extraction.example.json` for the full set):
 ├── rust/                          # PyO3 extension (swissphenocam._native)
 │   └── src/{lib.rs, extraction.rs, core.rs}
 ├── configs/*.example.json         # template configs — copy and edit
+├── notebooks/analysis.ipynb       # figures and tables of the paper, from the published dataset
 ├── tests/                         # pytest suite
 └── pyproject.toml                 # maturin build + project metadata
 ```

@@ -8,28 +8,27 @@ The driver logic lives in `src/swissphenocam/cli/` (importable, installed as con
 | --- | --- | --- | --- | --- |
 | `extract.py` | `swissphenocam-extract` | 1 — Extraction 💚 | webcam images + polygon JSONs | per-polygon GCC/RCC CSVs |
 | `process_timeseries.py` | `swissphenocam-process` | 2 — Time-series 📊 | stage-1 CSVs + snow flags | aggregated GCC/RCC products |
-| `estimate_transitions.py` | `swissphenocam-transitions` | 3 — Transitions 📈 | one aggregated series per tree-year | `transitions-*.json` with MC uncertainties |
+| `estimate_transitions.py` | `swissphenocam-transitions` | 3 — Transitions 📈 | one aggregated series per tree-year | `*-transitions.json` with MC uncertainties |
 | `aggregate_records.py` | `swissphenocam-aggregate` | 4 — Aggregation 📋 | stage-3 transitions + metadata + sampling flags | filtered wide CSV + filtering report |
-| `generate_dashboard.py` | — | utility | pipeline overview CSV | self-contained HTML dashboard with Plotly heatmaps and client-side filter controls |
-| `cleanup_old_stage2_names.py` | — | utility | stage-2 output root | removes files written with the pre-fix `<uid>-` naming convention (dry-run by default) |
-| `cleanup_old_stage3_names.py` | — | utility | stage-3 output root | removes files written with the pre-fix `transitions-<version>.json` naming convention (dry-run by default) |
 
 ## Usage 🚀
 
 After `uv sync && uv run maturin develop` the console scripts are available directly:
 
 ```bash
-swissphenocam-extract     --config configs/extraction.example.json --workers-per-site-year 4 --site-years-in-parallel 4
-swissphenocam-process     --config configs/timeseries.example.json
-swissphenocam-transitions --config configs/transitions.example.json
+swissphenocam-extract     --config configs/stage1-extraction.example.json --workers-per-site-year 4 --site-years-in-parallel 4
+swissphenocam-process     --config configs/stage2-timeseries.example.json
+swissphenocam-transitions --config configs/stage3-transitions.example.json
+swissphenocam-aggregate   --config configs/stage4-aggregate-curated.example.json
 ```
 
 Or run the scripts directly with `uv run python`:
 
 ```bash
-uv run python scripts/extract.py            --config configs/extraction.example.json --workers-per-site-year 4 --site-years-in-parallel 4
-uv run python scripts/process_timeseries.py --config configs/timeseries.example.json
-uv run python scripts/estimate_transitions.py --config configs/transitions.example.json
+uv run python scripts/extract.py            --config configs/stage1-extraction.example.json --workers-per-site-year 4 --site-years-in-parallel 4
+uv run python scripts/process_timeseries.py --config configs/stage2-timeseries.example.json
+uv run python scripts/estimate_transitions.py --config configs/stage3-transitions.example.json
+uv run python scripts/aggregate_records.py   --config configs/stage4-aggregate-curated.example.json
 ```
 
 ## Stage-1 modes (`--mode`) 🎯
