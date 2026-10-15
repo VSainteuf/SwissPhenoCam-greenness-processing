@@ -84,13 +84,13 @@ uv run maturin develop
 uv run pytest
 
 # 4. Run the stages
-swissphenocam-extract     --config configs/extraction.example.json --workers-per-site-year 4 --site-years-in-parallel 4
-swissphenocam-process     --config configs/timeseries.example.json
-swissphenocam-transitions --config configs/transitions.example.json
-swissphenocam-aggregate   --config configs/aggregate.example.json
+swissphenocam-extract     --config configs/stage1-extraction.example.json --workers-per-site-year 4 --site-years-in-parallel 4
+swissphenocam-process     --config configs/stage2-timeseries.example.json
+swissphenocam-transitions --config configs/stage3-transitions.example.json
+swissphenocam-aggregate   --config configs/stage4-aggregate-curated.example.json
 ```
 
-Or invoke via `uv run python scripts/<script>.py --config configs/<config>.example.json` if you prefer to run from source directly.
+Or invoke via `uv run python scripts/<script>.py --config configs/<stage config>.example.json` if you prefer to run from source directly.
 
 > Re-run `uv run maturin develop` after any change under `rust/`.
 
