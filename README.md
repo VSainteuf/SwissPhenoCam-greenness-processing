@@ -150,6 +150,19 @@ Or invoke via `uv run python scripts/<script>.py --config configs/<config>.examp
 
 ---
 
+## Paper figures 📊
+
+`notebooks/analysis.ipynb` makes all figures and tables of the paper from the published SwissPhenoCam dataset. It does not need the pipeline or the Rust extension, only the downloaded dataset.
+
+```bash
+uv sync                                    # installs the dev group (jupyter, matplotlib, ...)
+uv run jupyter lab notebooks/analysis.ipynb
+```
+
+Set `DATA_ROOT` in the first code cell to the folder of the downloaded dataset (the one holding `phenology_records_curated.csv`). A full run writes the figures (PDF) and a species colour map (`species_colormap.json`) to `notebooks/figures/`, and prints the LaTeX tables. Figures for the 6 most frequent species are for the main text; the files with the `_supp` suffix show the next 8 species.
+
+---
+
 ## Configuration ⚙️
 
 All four stages take a single `--config path/to/config.json`. Start from `configs/*.example.json` and edit paths. Config dataclasses and validators are in `src/swissphenocam/config.py` — invalid configs fail fast with a clear `ValueError`.
@@ -237,6 +250,7 @@ Minimal stage-1 config (see `configs/stage1-extraction.example.json` for the ful
 ├── rust/                          # PyO3 extension (swissphenocam._native)
 │   └── src/{lib.rs, extraction.rs, core.rs}
 ├── configs/*.example.json         # template configs — copy and edit
+├── notebooks/analysis.ipynb       # figures and tables of the paper, from the published dataset
 ├── tests/                         # pytest suite
 └── pyproject.toml                 # maturin build + project metadata
 ```
